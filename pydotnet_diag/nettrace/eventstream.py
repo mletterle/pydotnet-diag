@@ -6,13 +6,18 @@ class EventStream:
 
     def __init__(self):
         self.object_depth = 0
+        self.events = []
 
-    def read(self, buf, obj=None):
+    def read(self, buf):
+        while obj := self.read_objects(buf):
+            self.events.append(obj)
+
+    def read_objects(self, buf, obj=None):
         tag = int.from_bytes(buf.read(1), byteorder='little')
 
         if tag == EventTag.BEGIN_PRIVATE_OBJECT:
             self.object_depth += 1
-            return self.read(buf, obj)
+            return self.read_objects(buf, obj)
         elif tag == EventTag.NULL_REFERENCE:
             if self.object_depth == 0: return None
 
@@ -21,7 +26,7 @@ class EventStream:
             name_len = int.from_bytes(buf.read(4), byteorder='little')
             name = buf.read(name_len).decode()
 
-            return self.read(buf, EventObject(name, version, min_reader_ver))
+            return self.read_objects(buf, EventObject(name, version, min_reader_ver))
 
         elif tag == EventTag.END_OBJECT:
             self.object_depth -= 1
@@ -29,7 +34,7 @@ class EventStream:
             if obj is not None and obj.name in EventStream.Factories.keys():
                     obj = EventStream.Factories[obj.name](name=obj.name, version=obj.version, min_reader_ver=obj.min_reader_ver)
                     obj.read(buf)
-            return self.read(buf, obj)
+            return self.read_objects(buf, obj)
         else:
             raise Exception("Unknown EventObject Tag!")
 
