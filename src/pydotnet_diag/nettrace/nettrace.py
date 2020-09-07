@@ -6,7 +6,7 @@ class NetTrace:
     StreamHeader = b'\x14\x00!FastSerialization.1'
 
     def __init__(self):
-        self.events = []
+        self.event_stream = None
 
     def read(self, buf):
         self.magic = buf.read(len(NetTrace.Magic)).decode()
@@ -18,4 +18,4 @@ class NetTrace:
 
         es = EventStream()
         es.read(buf)
-        self.events = es.events
+        self.event_stream = es

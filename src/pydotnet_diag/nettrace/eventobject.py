@@ -1,5 +1,6 @@
 from enum import IntEnum
 from uuid import UUID
+from .nettypecode import NetTypeCode
 import io
 
 class EventTag(IntEnum):
@@ -63,6 +64,9 @@ class Block(EventObject):
     def align(self, buf, bound):
         align = buf.tell() % bound
         if align != 0: buf.seek(bound - align, io.SEEK_CUR)
+
+    def decode_payload(self, payload):
+        pass
 
     @staticmethod
     def read_var_int(buf):
@@ -132,7 +136,7 @@ class EventBlock(Block):
         event.activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little'))
         event.related_activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little'))
         event.payload_size = int.from_bytes(buf.read(4), byteorder='little')
-        event.payload = buf.read(event.payload_size)
+        event.payload = self.decode_payload(buf.read(event.payload_size))
         event.align(buf, 4)
         return event
 
@@ -152,9 +156,41 @@ class EventBlock(Block):
         event.related_activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little')) if flags & 0x20 else prev_event.related_activity_id
         if flags & 0x40: event.is_sorted = True
         event.payload_size = Block.read_var_int(buf) if flags & 0x80 else prev_event.payload_size
-        event.payload = buf.read(event.payload_size)
+        event.payload = self.decode_payload(buf.read(event.payload_size))
         return event
 
+class Metadata:
+
+    def __init__(self):
+        self.id = 0
+        self.provider_name = ''
+        self.event_id = 0
+        self.event_name = ''
+        self.keywords = 0
+        self.version = 0
+        self.level = 0
+        self.field_count = 0
+        self.fields = []
+
+class MetadataField:
+
+    def __init__(self):
+        self.type_code = None
+        self.field_name = ''
+        self.field_count = 0
+        self.fields = []
+
+    def read(self, buf):
+        self.type_code = int.from_bytes(buf.read(4), byteorder='little')
+        if self.type_code == NetTypeCode.OBJECT:
+            self.read_fields(buf)
+        self.field_name = bytes_to_nulstring(buf)
+
+    def read_fields(self, buf):
+        self.field_count = int.from_bytes(buf.read(4), byteorder='little')
+        for i in range(self.field_count):
+            fields.append(MetadataField())
+            fields[-1].read(buf)
 
 class MetadataBlock(EventBlock):
 
@@ -164,8 +200,33 @@ class MetadataBlock(EventBlock):
     def read(self, buf):
         super().read(buf)
 
-    def read_payload(self, buf):
-        pass
+    def decode_payload(self, payload):
+        metadata = Metadata()
+        buf = io.BytesIO(payload)
+        metadata.id = int.from_bytes(buf.read(4), byteorder='little')
+        metadata.provider_name = bytes_to_nulstring(buf)
+        metadata.event_id = int.from_bytes(buf.read(4), byteorder='little')
+        metadata.event_name = bytes_to_nulstring(buf)
+        metadata.keywords = int.from_bytes(buf.read(8), byteorder='little')
+        metadata.version = int.from_bytes(buf.read(4), byteorder='little')
+        metadata.level = int.from_bytes(buf.read(4), byteorder='little')
+        metadata.field_count = int.from_bytes(buf.read(4), byteorder='little')
+
+        for i in range(metadata.field_count):
+            field = MetadataField()
+            field.read(buf)
+            metadata.fields.append(field)
+
+
+        return metadata
+
+def bytes_to_nulstring(buf):
+    str_bytes = b''
+    while True:
+        b = buf.read(2)
+        if b == b'\x00\x00': break
+        str_bytes += b
+    return str_bytes.decode('utf-16')
 
 class StackBlock(Block):
 

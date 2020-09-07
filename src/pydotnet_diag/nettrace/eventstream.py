@@ -6,11 +6,24 @@ class EventStream:
 
     def __init__(self):
         self.object_depth = 0
+        self.trace = None
+        self.metadata = []
         self.events = []
+        self.stacks = []
+        self.sequence_points = []
 
     def read(self, buf):
         while obj := self.read_objects(buf):
-            self.events.append(obj)
+            if obj.name == 'Trace':
+                self.trace = obj
+            elif obj.name == 'EventBlock':
+                self.events.extend(obj.events)
+            elif obj.name == 'MetadataBlock':
+                self.metadata.extend(obj.events)
+            elif obj.name == 'StackBlock':
+                self.stacks.extend(obj.stacks)
+            elif obj.name == 'SPBlock':
+                self.sequence_points.extend(obj.threads)
 
     def read_objects(self, buf, obj=None):
         tag = int.from_bytes(buf.read(1), byteorder='little')
