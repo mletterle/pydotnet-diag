@@ -1,4 +1,5 @@
 from enum import IntEnum
+from uuid import UUID
 import io
 
 class EventTag(IntEnum):
@@ -56,9 +57,40 @@ class Block(EventObject):
 
     def read(self, buf):
         self.block_size = int.from_bytes(buf.read(4), byteorder='little')
-        align = buf.tell() % 4
-        if align != 0: buf.seek(4 - align, io.SEEK_CUR)
+        self.align(buf, 4)
         self.end_of_block = buf.tell() + self.block_size
+
+    def align(self, buf, bound):
+        align = buf.tell() % bound
+        if align != 0: buf.seek(bound - align, io.SEEK_CUR)
+
+    @staticmethod
+    def read_var_int(buf):
+        ret = 0
+        shift = 0
+        while True:
+            b = buf.read(1)[0]
+            ret |= ((b & 0x7F) << shift)
+            shift += 7
+            if not (b & 0x80): break
+        return ret
+
+class EventBlob:
+
+    def __init__(self):
+        self.event_size = 0
+        self.metadata_id = 0
+        self.seq = 0
+        self.thread_id = 0
+        self.capture_thread_id = 0
+        self.processor_num = 0
+        self.stack_id = 0
+        self.timestamp = 0
+        self.activity_id = UUID(int=0)
+        self.related_activity_id = UUID(int=0)
+        self.is_sorted = False
+        self.payload_size = 0
+        self.payload = None
 
 class EventBlock(Block):
 
@@ -72,21 +104,57 @@ class EventBlock(Block):
     def read(self, buf):
         super().read(buf)
         header_size = int.from_bytes(buf.read(2), byteorder='little')
+        end_of_header = (buf.tell() - 2) + header_size
         self.flags = int.from_bytes(buf.read(2), byteorder='little')
-        self.compressed = self.flags & 0x0001 == 0x0001
+        self.header_compressed = self.flags & 0x01 == 0x01
         self.min_timestamp = int.from_bytes(buf.read(8), byteorder='little')
         self.max_timestamp = int.from_bytes(buf.read(8), byteorder='little')
+
+        buf.seek(end_of_header, io.SEEK_SET)
+
         while buf.tell() < self.end_of_block:
-            if self.compressed:
-                 self.read_compressed_block(buf)
+            prev_event = self.events[-1] if len(self.events) != 0 else EventBlob()
+            if self.header_compressed:
+                 self.events.append(self.read_compressed_event(buf, prev_event))
             else:
-                 self.read_block(buf)
+                 self.events.append(self.read_event(buf))
 
-    def read_block(self, buf):
-        buf.read(1)
+    def read_event(self, buf):
+        event = EventBlob()
+        event.event_size = int.from_bytes(buf.read(4), byteorder='little')
+        event.metadata_id = int.from_bytes(buf.read(4), byteorder='little')
+        event.seq = int.from_bytes(buf.read(4), byteorder='little')
+        event.thread_id = int.from_bytes(buf.read(8), byteorder='little')
+        event.capture_thread_id = int.from_bytes(buf.read(8), byteorder='little')
+        event.processor_num = int.from_bytes(buf.read(4), byteorder='little')
+        event.stack_id = int.from_bytes(buf.read(4), byteorder='little')
+        event.timestamp = int.from_bytes(buf.read(8), byteorder='little')
+        event.activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little'))
+        event.related_activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little'))
+        event.payload_size = int.from_bytes(buf.read(4), byteorder='little')
+        event.payload = buf.read(event.payload_size)
+        event.align(buf, 4)
+        return event
 
-    def read_compressed_block(self, buf):
-        buf.read(1)
+
+    def read_compressed_event(self, buf, prev_event):
+        event = EventBlob()
+        flags = buf.read(1)[0]
+        event.metadata_id = Block.read_var_int(buf) if flags & 0x01 else prev_event.metadata_id
+        event.seq = prev_event.seq + Block.read_var_int(buf) if flags & 0x02 else prev_event.seq
+        if not flags & 0x02 and event.metadata_id != 0: event.seq += 1
+        event.capture_thread_id = Block.read_var_int(buf) if flags & 0x02 else prev_event.capture_thread_id
+        event.processor_num = Block.read_var_int(buf) if flags & 0x02 else prev_event.processor_num
+        event.thread_id = Block.read_var_int(buf) if flags & 0x04 else prev_event.thread_id
+        event.stack_id = Block.read_var_int(buf) if flags & 0x08 else prev_event.stack_id
+        event.timestamp = prev_event.timestamp + Block.read_var_int(buf)
+        event.activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little')) if flags & 0x10 else prev_event.activity_id
+        event.related_activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little')) if flags & 0x20 else prev_event.related_activity_id
+        if flags & 0x40: event.is_sorted = True
+        event.payload_size = Block.read_var_int(buf) if flags & 0x80 else prev_event.payload_size
+        event.payload = buf.read(event.payload_size)
+        return event
+
 
 class MetadataBlock(EventBlock):
 
@@ -96,8 +164,8 @@ class MetadataBlock(EventBlock):
     def read(self, buf):
         super().read(buf)
 
-    def read_block(self, buf):
-        super().read_block(buf)
+    def read_payload(self, buf):
+        pass
 
 class StackBlock(Block):
 
