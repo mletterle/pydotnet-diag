@@ -1,5 +1,5 @@
 import struct
-from .eventobject import *
+from .eventstream import EventStream
 
 class NetTrace:
     Magic = b'Nettrace'
