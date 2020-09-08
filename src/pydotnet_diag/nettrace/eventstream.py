@@ -19,7 +19,7 @@ class EventStream:
             elif obj.name == 'EventBlock':
                 self.events.extend(obj.events)
             elif obj.name == 'MetadataBlock':
-                self.metadata.extend(obj.events)
+                self.metadata.extend(map(lambda e: e.payload, obj.events))
             elif obj.name == 'StackBlock':
                 self.stacks.extend(obj.stacks)
             elif obj.name == 'SPBlock':

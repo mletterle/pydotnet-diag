@@ -127,6 +127,8 @@ class EventBlock(Block):
         event = EventBlob()
         event.event_size = int.from_bytes(buf.read(4), byteorder='little')
         event.metadata_id = int.from_bytes(buf.read(4), byteorder='little')
+        event.is_sorted = event.metadata_id & 0x80000000
+        event.metadata_id &= 0x7FFFFFFF
         event.seq = int.from_bytes(buf.read(4), byteorder='little')
         event.thread_id = int.from_bytes(buf.read(8), byteorder='little')
         event.capture_thread_id = int.from_bytes(buf.read(8), byteorder='little')
@@ -158,6 +160,9 @@ class EventBlock(Block):
         event.payload_size = Block.read_var_int(buf) if flags & 0x80 else prev_event.payload_size
         event.payload = self.decode_payload(buf.read(event.payload_size))
         return event
+
+    def decode_payload(self, buf):
+        return buf
 
 class Metadata:
 
@@ -217,7 +222,6 @@ class MetadataBlock(EventBlock):
             field.read(buf)
             metadata.fields.append(field)
 
-
         return metadata
 
 def bytes_to_nulstring(buf):
@@ -261,5 +265,7 @@ class SequencePointBlock(Block):
 
     def read(self, buf):
         super().read(buf)
-        while buf.tell() < self.end_of_block:
+        self.timestamp = int.from_bytes(buf.read(8), byteorder='little')
+        self.thread_count = int.from_bytes(buf.read(4), byteorder='little')
+        for t in range(self.thread_count):
             self.threads.append(SPThread(int.from_bytes(buf.read(8), byteorder='little'), int.from_bytes(buf.read(4), byteorder='little')))

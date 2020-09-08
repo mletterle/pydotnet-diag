@@ -4,4 +4,7 @@ A python library and client implementing the .NET Core [Diagnostic IPC Protocol]
 
 It also supports parsing the [EventPipe File Format](https://github.com/microsoft/perfview/blob/T2.0.59/src/TraceEvent/EventPipe/EventPipeFormat.md).
 
-*Note* Only Unix Sockets are supported at this time.
+## Current Limitations
+ - Only V4 of the NetTrace format is supported
+ - Only Unix Sockets are supported at this time.
+
