@@ -1,8 +1,6 @@
-from .eventobject import EventObject, TraceObject, EventBlock, MetadataBlock, StackBlock, SequencePointBlock, EventTag
+from .eventobject import BlockFactories, EventTag, EventObject
 
 class EventStream:
-
-    Factories = { 'Trace': TraceObject, 'EventBlock': EventBlock, 'MetadataBlock': MetadataBlock, 'StackBlock': StackBlock,  'SPBlock': SequencePointBlock }
 
     def __init__(self):
         self.object_depth = 0
@@ -44,8 +42,8 @@ class EventStream:
         elif tag == EventTag.END_OBJECT:
             self.object_depth -= 1
             if self.object_depth == 0: return obj
-            if obj is not None and obj.name in EventStream.Factories.keys():
-                    obj = EventStream.Factories[obj.name](name=obj.name, version=obj.version, min_reader_ver=obj.min_reader_ver)
+            if obj is not None and obj.name in BlockFactories.keys():
+                    obj = BlockFactories[obj.name](name=obj.name, version=obj.version, min_reader_ver=obj.min_reader_ver)
                     obj.read(buf)
             return self.read_objects(buf, obj)
         else:

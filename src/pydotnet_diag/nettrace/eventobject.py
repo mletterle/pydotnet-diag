@@ -3,6 +3,8 @@ from uuid import UUID
 from .nettypecode import NetTypeCode
 import io
 
+BlockFactories = {}
+
 class EventTag(IntEnum):
     NULL_REFERENCE = 0x01
     BEGIN_PRIVATE_OBJECT = 0x05
@@ -10,13 +12,19 @@ class EventTag(IntEnum):
 
 class EventObject:
 
+    def __init_subclass__(cls, is_factory=True, factory_name=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not is_factory: return
+        factory_name = factory_name or cls.__name__
+        if factory_name not in BlockFactories.keys(): BlockFactories[factory_name] = cls
+
     def __init__(self, name=None, version=0, min_reader_ver=0):
         self.name = name or self.__class__.__name__
         self.version = version
         self.min_reader_ver = min_reader_ver
 
 
-class TraceObject(EventObject):
+class TraceObject(EventObject, factory_name='Trace'):
 
     def __init__(self, name=None, version=0, min_reader_ver=0):
         super().__init__(name, version, min_reader_ver)
@@ -51,7 +59,8 @@ class TraceObject(EventObject):
         self.number_of_proc = int.from_bytes(buf.read(4), byteorder='little')
         self.expected_cpu_sampling_rate = int.from_bytes(buf.read(4), byteorder='little')
 
-class Block(EventObject):
+
+class Block(EventObject, is_factory=False):
 
     def __init__(self, name=None, version=0, min_reader_ver=0):
         super().__init__(name, version, min_reader_ver)
@@ -255,7 +264,7 @@ class SPThread:
         self.thread_id = thread_id
         self.seq_num = seq_num
 
-class SequencePointBlock(Block):
+class SequencePointBlock(Block, factory_name='SPBlock'):
 
     def __init__(self, name=None, version=0, min_reader_ver=0):
         super().__init__(name, version, min_reader_ver)
