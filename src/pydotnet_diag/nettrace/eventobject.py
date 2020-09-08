@@ -1,7 +1,8 @@
+import io
 from enum import IntEnum
 from uuid import UUID
 from .nettypecode import NetTypeCode
-import io
+from .parsers import utils
 
 BlockFactories = {}
 
@@ -198,7 +199,7 @@ class MetadataField:
         self.type_code = int.from_bytes(buf.read(4), byteorder='little')
         if self.type_code == NetTypeCode.OBJECT:
             self.read_fields(buf)
-        self.field_name = bytes_to_nulstring(buf)
+        self.field_name = utils.bytes_to_nuluni(buf)
 
     def read_fields(self, buf):
         self.field_count = int.from_bytes(buf.read(4), byteorder='little')
@@ -218,9 +219,9 @@ class MetadataBlock(EventBlock):
         metadata = Metadata()
         buf = io.BytesIO(payload)
         metadata.id = int.from_bytes(buf.read(4), byteorder='little')
-        metadata.provider_name = bytes_to_nulstring(buf)
+        metadata.provider_name = utils.bytes_to_nuluni(buf)
         metadata.event_id = int.from_bytes(buf.read(4), byteorder='little')
-        metadata.event_name = bytes_to_nulstring(buf)
+        metadata.event_name = utils.bytes_to_nuluni(buf)
         metadata.keywords = int.from_bytes(buf.read(8), byteorder='little')
         metadata.version = int.from_bytes(buf.read(4), byteorder='little')
         metadata.level = int.from_bytes(buf.read(4), byteorder='little')
@@ -233,13 +234,6 @@ class MetadataBlock(EventBlock):
 
         return metadata
 
-def bytes_to_nulstring(buf):
-    str_bytes = b''
-    while True:
-        b = buf.read(2)
-        if b == b'\x00\x00': break
-        str_bytes += b
-    return str_bytes.decode('utf-16')
 
 class StackBlock(Block):
 
