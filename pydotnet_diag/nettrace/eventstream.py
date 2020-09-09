@@ -33,6 +33,14 @@ class EventStream:
             if hasattr(parsers, parser):
                 event.payload = eval(f"parsers.{parser}")(io.BytesIO(event.payload))
 
+        for id in self.metadata.keys():
+            metadata = self.metadata[id]
+            if metadata.event_name is None or metadata.event_name == '':
+                parser = f"get_{metadata.provider_name.replace('-', '_')}_{metadata.event_id}_op_code"
+                if hasattr(parsers, parser):
+                    metadata.event_name = eval(f"parsers.{parser}")()
+
+
 
     def read_objects(self, buf, obj=None):
         tag = int.from_bytes(buf.read(1), byteorder='little')

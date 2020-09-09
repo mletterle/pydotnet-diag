@@ -180,9 +180,9 @@ class Metadata:
 
     def __init__(self):
         self.id = 0
-        self.provider_name = ''
+        self.provider_name = None
         self.event_id = 0
-        self.event_name = ''
+        self.event_name = None
         self.keywords = 0
         self.version = 0
         self.level = 0
@@ -193,7 +193,7 @@ class MetadataField:
 
     def __init__(self):
         self.type_code = None
-        self.name = ''
+        self.name = None
         self.field_count = 0
         self.fields = []
 

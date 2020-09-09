@@ -36,7 +36,10 @@ def generate_file(manifest):
                 event = provider['events'][event_id]
                 event_template = event['template']
                 template = provider['templates'][event_template]
-                parser.write(f"def read_{provider_name.replace('-', '_')}_{event_id}_payload(buf):\n")
+                safe_provider_name = provider_name.replace('-', '_')
+                parser.write(f"def get_{safe_provider_name}_{event_id}_op_code():\n")
+                parser.write(f"\treturn '{event['op_code']}'\n\n")
+                parser.write(f"def read_{safe_provider_name}_{event_id}_payload(buf):\n")
                 parser.write(f"\tret = {{}}\n")
                 for data in template:
                     parser.write(f"\tret['{data['name']}'] = read_win_type(buf, '{data['in']}')\n")

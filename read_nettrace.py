@@ -19,11 +19,13 @@ def read_file(ntfile):
 
 def print_trace(nt):
     trace = nt.event_stream.trace
+    metadata = nt.event_stream.metadata
 
     print(f"Trace of PID:{trace.process_id} from {trace.year}{trace.month:02}{trace.day:02} - {trace.hour:02}:{trace.minute:02}:{trace.second:02}")
 
     for evt in nt.event_stream.events:
-        print(f"{evt.seq}: {evt.metadata_id:04} TimeStamp: {evt.timestamp}\n\t{evt.payload}")
+        md = metadata[evt.metadata_id]
+        print(f"{evt.seq}: TimeStamp: {evt.timestamp} {md.provider_name}:{md.event_name}\n\t{evt.payload}")
 
 
 def main():
