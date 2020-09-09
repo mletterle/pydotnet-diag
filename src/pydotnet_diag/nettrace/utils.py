@@ -1,4 +1,5 @@
 import struct
+from uuid import UUID
 from .nettypecode import NetTypeCode
 
 def bytes_to_nuluni(buf):
@@ -44,16 +45,21 @@ def read_type(type_code, buf):
         return struct.unpack('<d', buf.read(8))[0]
     if type_code == NetTypeCode.STRING:
         return bytes_to_nuluni(buf)
+    if type_code == NetTypeCode.GUID:
+        return UUID(bytes_le=buf.read(16))
 
-def read_win_type(win_type, buf):
-    if win_type == "win:UnicodeString": return read_type(NetTypeCode.STRING)
+def read_win_type(buf, win_type):
+    if win_type == "win:UnicodeString": return read_type(NetTypeCode.STRING, buf)
     elif win_type == "win:AnsiString": return bytes_to_nulans(buf)
-    elif win_type == "win:Int8": return read_type(NetTypeCode.SBYTE)
-    elif win_type == "win:UInt8": return read_type(NetTypeCode.BYTE)
-    elif win_type == "win:Int16": return read_type(NetTypeCode.INT16)
-    elif win_type == "win:UInt16": return read_type(NetTypeCode.UINT16)
-    elif win_type == "win:Int32": return read_type(NetTypeCode.INT32)
-    elif win_type == "win:UInt32": return read_type(NetTypeCode.UINT32)
-    elif win_type == "win:Float": return read_type(NetTypeCode.SINGLE)
-    elif win_type == "win:Double": return read_type(NetTypeCode.DOUBLE)
-    elif win_type == "win:Boolean": return read_type(NetTypeCode.BOOLEAN)
+    elif win_type == "win:Int8": return read_type(NetTypeCode.SBYTE, buf)
+    elif win_type == "win:UInt8": return read_type(NetTypeCode.BYTE, buf)
+    elif win_type == "win:Int16": return read_type(NetTypeCode.INT16, buf)
+    elif win_type == "win:UInt16": return read_type(NetTypeCode.UINT16, buf)
+    elif win_type == "win:Int32": return read_type(NetTypeCode.INT32, buf)
+    elif win_type == "win:UInt32": return read_type(NetTypeCode.UINT32, buf)
+    elif win_type == "win:Int64": return read_type(NetTypeCode.INT64, buf)
+    elif win_type == "win:UInt64": return read_type(NetTypeCode.UINT64, buf)
+    elif win_type == "win:Float": return read_type(NetTypeCode.SINGLE, buf)
+    elif win_type == "win:Double": return read_type(NetTypeCode.DOUBLE, buf)
+    elif win_type == "win:Boolean": return read_type(NetTypeCode.BOOLEAN, buf)
+    elif win_type == "win:GUID": return read_type(NetTypeCode.GUID, buf)

@@ -147,8 +147,8 @@ class EventBlock(Block):
         event.processor_num = int.from_bytes(buf.read(4), byteorder='little')
         event.stack_id = int.from_bytes(buf.read(4), byteorder='little')
         event.timestamp = int.from_bytes(buf.read(8), byteorder='little')
-        event.activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little'))
-        event.related_activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little'))
+        event.activity_id = UUID(bytes_le=buf.read(16))
+        event.related_activity_id = UUID(bytes_le=buf.read(16))
         event.payload_size = int.from_bytes(buf.read(4), byteorder='little')
         event.payload = self.decode_payload(buf.read(event.payload_size))
         event.align(buf, 4)
@@ -166,8 +166,8 @@ class EventBlock(Block):
         event.thread_id = Block.read_var_int(buf) if flags & 0x04 else prev_event.thread_id
         event.stack_id = Block.read_var_int(buf) if flags & 0x08 else prev_event.stack_id
         event.timestamp = prev_event.timestamp + Block.read_var_int(buf)
-        event.activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little')) if flags & 0x10 else prev_event.activity_id
-        event.related_activity_id = UUID(int=int.from_bytes(buf.read(2), byteorder='little')) if flags & 0x20 else prev_event.related_activity_id
+        event.activity_id = UUID(bytes_le=buf.read(16)) if flags & 0x10 else prev_event.activity_id
+        event.related_activity_id = UUID(bytes_le=buf.read(16)) if flags & 0x20 else prev_event.related_activity_id
         if flags & 0x40: event.is_sorted = True
         event.payload_size = Block.read_var_int(buf) if flags & 0x80 else prev_event.payload_size
         event.payload = self.decode_payload(buf.read(event.payload_size))
