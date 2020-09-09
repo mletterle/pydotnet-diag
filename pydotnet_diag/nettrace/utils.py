@@ -63,3 +63,4 @@ def read_win_type(buf, win_type):
     elif win_type == "win:Double": return read_type(NetTypeCode.DOUBLE, buf)
     elif win_type == "win:Boolean": return read_type(NetTypeCode.BOOLEAN, buf)
     elif win_type == "win:GUID": return read_type(NetTypeCode.GUID, buf)
+    elif win_type == "win:Pointer": return read_type(NetTypeCode.UINT64, buf) #Nobody uses 32-bit CPUs anymore ...
