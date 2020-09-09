@@ -2,7 +2,8 @@ import io
 from enum import IntEnum
 from uuid import UUID
 from .nettypecode import NetTypeCode
-from .parsers import utils
+from . import utils
+from . import parsers
 
 BlockFactories = {}
 
@@ -105,6 +106,7 @@ class EventBlob:
         self.is_sorted = False
         self.payload_size = 0
         self.payload = None
+        self.payload_decoded = False
 
 class EventBlock(Block):
 
@@ -191,7 +193,7 @@ class MetadataField:
 
     def __init__(self):
         self.type_code = None
-        self.field_name = ''
+        self.name = ''
         self.field_count = 0
         self.fields = []
 
@@ -199,7 +201,7 @@ class MetadataField:
         self.type_code = int.from_bytes(buf.read(4), byteorder='little')
         if self.type_code == NetTypeCode.OBJECT:
             self.read_fields(buf)
-        self.field_name = utils.bytes_to_nuluni(buf)
+        self.name = utils.bytes_to_nuluni(buf)
 
     def read_fields(self, buf):
         self.field_count = int.from_bytes(buf.read(4), byteorder='little')
@@ -232,7 +234,31 @@ class MetadataBlock(EventBlock):
             field.read(buf)
             metadata.fields.append(field)
 
+        if metadata.field_count > 0:
+            #Add a dynamicly created parser function
+            code = f"def temp_meth(buf):\n"
+            code += "\tret = {}\n"
+            for field in metadata.fields:
+                code += self.get_metadata_field_code(field)
+            code += "\treturn ret\n"
+            code += f"parsers.read_{metadata.provider_name.replace('-', '_')}_{metadata.event_id}_payload = temp_meth"
+            exec(code)
+        self.payload_decoded = True
         return metadata
+
+    def get_metadata_field_code(self, field, in_object=False):
+        code = ""
+        if field.type_code == NetTypeCode.OBJECT:
+            code += f"\tret['{field.name}'] = {{"
+            for subfield in field.fields:
+               code += self.get_metadata_field_code(subfield, in_object=True) + ","
+            code = code[:-1] + "}\n"
+        elif in_object:
+            code += f"'{field.name}': utils.read_type({field.type_code}, buf)"
+        else:
+            code += f"\tret['{field.name}'] = utils.read_type({field.type_code}, buf)\n"
+
+        return code
 
 
 class StackBlock(Block):

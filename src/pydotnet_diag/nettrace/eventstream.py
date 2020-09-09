@@ -1,11 +1,13 @@
 from .eventobject import BlockFactories, EventTag, EventObject
+from . import parsers
+import io
 
 class EventStream:
 
     def __init__(self):
         self.object_depth = 0
         self.trace = None
-        self.metadata = []
+        self.metadata = {}
         self.events = []
         self.stacks = []
         self.sequence_points = []
@@ -17,11 +19,20 @@ class EventStream:
             elif obj.name == 'EventBlock':
                 self.events.extend(obj.events)
             elif obj.name == 'MetadataBlock':
-                self.metadata.extend(map(lambda e: e.payload, obj.events))
+                for evt in obj.events:
+                    self.metadata[evt.payload.id] = evt.payload
             elif obj.name == 'StackBlock':
                 self.stacks.extend(obj.stacks)
             elif obj.name == 'SPBlock':
                 self.sequence_points.extend(obj.threads)
+
+        for event in self.events:
+            if event.payload_decoded: continue
+            metadata = self.metadata[event.metadata_id]
+            parser = f"read_{metadata.provider_name.replace('-', '_')}_{metadata.event_id}_payload"
+            if hasattr(parsers, parser):
+                event.payload = eval(f"parsers.{parser}")(io.BytesIO(event.payload))
+
 
     def read_objects(self, buf, obj=None):
         tag = int.from_bytes(buf.read(1), byteorder='little')
